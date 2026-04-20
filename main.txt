@@ -1,3 +1,5 @@
+Practice
+
 # 1. Tell Terraform to use AWS
 provider "aws" {
   region = "us-east-1" # Change this to your sandbox region
