@@ -1,0 +1,57 @@
+# 1. Tell Terraform to use AWS
+provider "aws" {
+  region = "us-east-1" # Change this to your sandbox region
+}
+
+# 2. Create a Security Group (The "Firewall")
+resource "aws_security_group" "project_sg" {
+  name        = "devops-project-sg"
+  description = "Allow SSH and Web Traffic"
+
+  # Allow SSH (Port 22) to talk to the server
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # In your sandbox, replace with your IP if it gets deleted
+  }
+
+  # Allow Jenkins (Port 8080)
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Allow Outbound traffic (so the server can download Jenkins/Docker)
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# 3. Create the EC2 Instance (The "Server")
+resource "aws_instance" "devops_server" {
+  ami           = "ami-0c7217cdde317cfec" # Standard Ubuntu 22.04 AMI
+  instance_type = "t2.micro"             # Free Tier eligible
+  vpc_security_group_ids = [aws_security_group.project_sg.id]
+  key_name      = "vprofile-key"         # Replace with your Sandbox Key Pair name
+
+  tags = {
+    Name = "Jenkins-Server"
+  }
+
+  # USER DATA: This script runs automatically on startup
+  user_data = <<-EOF
+              #!/bin/bash
+              sudo apt-get update -y
+              sudo apt-get install -y docker.io
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              # This installs a simple Jenkins container quickly
+              sudo docker run -d -p 8080:8080 -p 50000:50000 --name jenkins jenkins/jenkins:lts
+              EOF
+}
